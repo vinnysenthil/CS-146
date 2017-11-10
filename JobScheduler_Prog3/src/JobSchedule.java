@@ -1,14 +1,14 @@
 /*
  * CS 146
  * Professor David Taylor
- * San Jose State University
+ * San José State University
  * Fall 2017
  * 
  * Programming Assignment 3: JobScheduler
  * 
  * Find the "minimum completion time" for a set of given jobs, where jobs may happen in parallel, 
  * and also, each job may take different amounts of time. This is done by implementing a directed,
- * acyclic graph represented by an adjacency list and using a single-source shortest path algorithm.
+ * acyclic graph represented by 2 adjacency lists and using a single-source shortest path algorithm.
  * 
  * Written By: Vinny Senthil
  * October 24th, 2017
@@ -21,16 +21,19 @@ public class JobSchedule{
 	private int v;							// Number of vertices in graph
 	private int e;							// Number of edges in graph
 	private int sz;							// Array Size, Dynamically Updated
-	private LinkedList<Job> adjList[];		// Incoming Adjacency List 
+	private LinkedList<Job> adjIncList[];	// Incoming Adjacency List 
+	private LinkedList<Job> adjOutList[];	// Outgoing Adjacency List
 	
 	public JobSchedule(){					// No-parameter constructor
 		
 		v = 0;
 		e = 0;
 		sz = 10;							// Default size of 10, increased or decreased automatically
-		adjList = new LinkedList[sz];		
-
+		adjIncList = new LinkedList[sz];	
+		adjOutList = new LinkedList[sz];
+		
 	} // end JobSchedule::JobSchedule
+	
 	
 	/* ADDJOB
 	 * 
@@ -42,14 +45,20 @@ public class JobSchedule{
 	public Job addJob(int time){
 		
 		Job newJob = new Job(v, time);
-		sizeCheck();
-		adjList[v] = new LinkedList<Job>();
-		adjList[v].add(newJob);
+		sizeCheck();							// Check current adj lists' size and update if needed
+		
+		adjIncList[v] = new LinkedList<Job>();
+		adjIncList[v].add(newJob);
+		
+		adjOutList[v] = new LinkedList<Job>();
+		adjOutList[v].add(newJob);
+				
 		v++;
 		
 		return newJob;
 		
 	} // end JobSchedule::addJob
+	
 	
 	/* GETJOB
 	 * 
@@ -62,7 +71,7 @@ public class JobSchedule{
 	 */
 	public Job getJob(int index){
 		
-		return adjList[index].get(0);
+		return adjIncList[index].getFirst();
 		
 	} // end JobSchedule::getJob
 	
@@ -78,97 +87,129 @@ public class JobSchedule{
 		
 		Integer[] d = new Integer[v];
 		
-		if(SSSPDAG(d, -1) < 0)
-			return -1;
+		if(SSSPDAG(d, -1) < 0)			// If SSSPDAG returns -1 (cycle detection)
+			return -1;					// Return -1 here as well
 		
 		return findMin(d);
 		
 	} // end JobSchedule::minCompletionTime
 	
+	
+	// Shortest Path Algorithm w/ Cycle Checking
 	public int SSSPDAG(Integer[] d, int jobV){
-		// Shortest Path Algorithm w/ Cycle Checking
+				
+		List<Integer> vertList = topSort();				// Create List of topologically sorted Jobs from graph
 		
-		Boolean[] dis = new Boolean[v];
-		Stack<Integer> topStack = new Stack<Integer>();
-		Stack<Integer> extraStack = new Stack<Integer>();
-
-		for(int i = 0; i < v; i++)
-			dis[i] = false;
-		
-		topSort(dis, 0, topStack);
+		if(jobV < 0 && vertList.size() != v)			// If topSort failed, there's a cycle
+			return -1;									// So return -1 to tell minCompletionTime
 		
 		Integer[] pi = new Integer[v];
 		Boolean[] fin = new Boolean[v];
 			
 		// SSSP_INITIALIZE(G,s)
 		for(int i = 0; i < v; i++){
-			d[i] = adjList[i].getFirst().W();
+			d[i] = adjIncList[i].getFirst().W();		// Set default distance as Job
 			pi[i] = null;
-			dis[i] = false;
 			fin[i] = false;
 		}
-		
-		// Iterating through topologically sorted stack
 				
-		while(!topStack.empty()){
-			int u = topStack.pop();
-						
-			fin[u] = true;
-			Iterator<Job> edges = adjList[u].iterator();
+		// Iterating through topologically sorted stack
+		
+		Iterator<Integer> iter = vertList.iterator();
+				
+		while(iter.hasNext()){
+			int u = iter.next();						// Get index of Job u from topSort list
 			
-			if(edges.hasNext())							// Skip first vertex in adjacency list
+			if(jobV == u)								// If SSSP DAG is being called for getStartTime()
+				return 1;								// Single Target Destination reached
+			
+			fin[u] = true;								// Mark Job u as found
+			
+			Iterator<Job> edges = adjOutList[u].iterator();
+			
+			if(edges.hasNext())							// Skip first Job in adjacency list (Job 'u' itself)
 				edges.next();
 			
 			while (edges.hasNext()){
-				Job v = edges.next();
+				int v = edges.next().V();				// Get Job index of next outgoing edge from u -> v
 					
 				// RELAX(G,s)
-				if(d[u] < (d[v.V()] + getWeight(u))){
-					if(fin[v.V()])
-						return -1;						// !! Cycle Detected !!
+				if(d[u] + getWeight(v) > (d[v])){		// Check if new time takes longer
 					
-					d[u] = d[v.V()] + getWeight(u);
-					pi[v.V()] = u;
+					d[v] = d[u] + getWeight(v);			// If so, update Job's start time
+					pi[v] = u;							// Update or set parent Job
+				
 				}
 			}	
 		}
+				
+		for (int i = 0; i < v; i++){		// Kahn's algorithm will not discover vertices in cycles
+			if(fin[i] == false)				// Therefore if any vertex was not discovered after SSSP DAG,
+				d[i] = (-1);				// Set its start time to -1
+		}
 		
 		return 1;
-	}
+	} // end JobSchedule::SSSPDAG
 	
-	// Dynamically increase size of array storing adjacency list
+	
+	// Dynamically increase size of array storing adjacency lists
 	public void sizeCheck(){
-		if (v+1 == sz){
+		if (v+1 == sz){											// If new Job will exceed size, double size of adjLists
 			sz *= 2;	
-			LinkedList<Job> newAdj[] = new LinkedList[sz];
-			
+			LinkedList<Job> newAdjI[] = new LinkedList[sz];
+			LinkedList<Job> newAdjO[] = new LinkedList[sz];
+
 			for (int i = 0; i < (sz/2); i++){
-				newAdj[i] = adjList[i];
+				newAdjI[i] = adjIncList[i];						// Temporarily copy and hold data while resizing
+				newAdjO[i] = adjOutList[i];
 			}
 			
-			adjList = newAdj;
+			adjIncList = newAdjI;								// Reassign temporarily held data
+			adjOutList = newAdjO;
 		}
 		
 		else
-			return;
-	}
-	
-	public void topSort(Boolean[] found, int u, Stack<Integer> topStack)
-	{
-		found[u] = true;
-		Iterator<Job> iter = adjList[u].iterator();
+			return;												// Else if new Job fits, then do nothing
 		
-		while(iter.hasNext()){
-			Job temp = iter.next();
-
-			if(!found[temp.V()])
-				topSort(found, temp.vertex, topStack);
+	} // end JobSchedule::sizeCheck
+	
+	
+	// Non-Recursive, Non-DFS TopSort (Kahn's Algorithm)
+	public ArrayList<Integer> topSort()
+	{
+		int[] inDegree = new int[v];
+		
+		for(int i = 0; i < v; i++){
+			inDegree[i] = (adjIncList[i].size() - 1);			// Set inDegree for each vertex based on LinkedList size
+		}														// in the incoming adjacency list
+		
+		ArrayList<Integer> vertList = new ArrayList<Integer>();
+		
+		for (int i = 0; i < v; i++){							// Add all Jobs with no required jobs to start of topSort list
+			if(inDegree[i] == 0)
+				vertList.add(i);
+		}
+				
+		for(int i = 0; i < vertList.size(); i++){
+			int u = vertList.get(i);							// Get Job from topSort list, in order
 			
+			Iterator<Job> outVertices = adjOutList[u].iterator();
+			
+			while(outVertices.hasNext()){						// Go through all outgoing edges from Jobs already in list
+				int v = outVertices.next().V();
+				--inDegree[v];									// Once found, decrement inDegree for that Job
+				
+				if (inDegree[v] == 0)							// If inDegree has reached zero, add to end of topSort list
+					vertList.add(v);
+			}
 		}
 		
-		topStack.push(u);
-	}
+		return vertList;										// Return ArrayList of topSort list
+		
+	} // end JobSchedule::topSort
 	
+	
+	// Find Job sequence that takes largest time in JobSchedule
 	public int findMin(Integer[] d){
 		
 		int minTime = Integer.MIN_VALUE;				// Negative Infinity
@@ -179,10 +220,11 @@ public class JobSchedule{
 		}
 		
 		return minTime;
-	}
+	} // end JobSchedule::findMin
+	
 	
 	public int getWeight(int vertex){
-		return adjList[vertex].getFirst().W();
+		return adjIncList[vertex].getFirst().W();
 	}
 	
 	// Get Number of Vertices
@@ -199,11 +241,12 @@ public class JobSchedule{
 	public int getSize(){
 		return sz;
 	}
-		
+	
 	public class Job{
-		int vertex;
-		int weight;
+		int vertex;							// This Job's index in adjacency lists
+		int weight;							// Time of this specific Job
 		
+		// Two Parameter Job Constructor
 		public Job(int v, int w){
 			vertex = v;
 			weight = w;
@@ -216,6 +259,12 @@ public class JobSchedule{
 		public int W(){
 			return weight;
 		}
+			
+		// Edge Weight Mutator (Job Time)
+		public void setTime(int t){
+			weight = t;
+		}
+		
 		
 		/* JOBS::REQUIRES
 		 * 
@@ -224,10 +273,12 @@ public class JobSchedule{
 		 */
 		public void requires(Job j){
 			
-			adjList[vertex].add(j);
+			adjIncList[vertex].add(j);			// Add required job into incoming adjacency list
+			adjOutList[j.V()].add(this);		// Add this job into the required job's outgoing adjacency list
 			e++;
 		
 		} // end Job::requires
+		
 		
 		/* JOBS::GETSTARTTIME
 		 * 
@@ -244,9 +295,14 @@ public class JobSchedule{
 			Integer[] d = new Integer[v];
 			if(SSSPDAG(d, vertex) < 0)
 				return -1;
-			return d[vertex] - weight;
+			
+			if(d[vertex] < 0)				// If this vertex is in a cycle
+				return -1;					// Then it cannot have a start time, thus return -1
+			else
+				return d[vertex] - weight;	// Return the longest minimum time to *start* job
 			
 		} // end Job::requires
-	}
 	
-}
+	} // end Job class
+	
+} // end JobSchedule class
