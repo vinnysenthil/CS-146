@@ -245,11 +245,13 @@ public class JobSchedule{
 	public class Job{
 		int vertex;							// This Job's index in adjacency lists
 		int weight;							// Time of this specific Job
+		int startTime;						// Minimum time to begin this Job
 		
 		// Two Parameter Job Constructor
 		public Job(int v, int w){
 			vertex = v;
 			weight = w;
+			startTime = -1;
 		}
 		
 		public int V(){
@@ -259,12 +261,20 @@ public class JobSchedule{
 		public int W(){
 			return weight;
 		}
+		
+		public int getT(){
+			return startTime;
+		}
 			
 		// Edge Weight Mutator (Job Time)
-		public void setTime(int t){
+		public void setW(int t){
 			weight = t;
 		}
 		
+		// Start Time Mutator
+		public void setT(int t){
+			startTime = t;
+		}
 		
 		/* JOBS::REQUIRES
 		 * 
