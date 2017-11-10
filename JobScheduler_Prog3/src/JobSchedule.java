@@ -21,14 +21,15 @@ public class JobSchedule{
 	private int v;							// Number of vertices in graph
 	private int e;							// Number of edges in graph
 	private int sz;							// Array Size, Dynamically Updated
+	private boolean changed;				// Track whether Schedule has been changed between method calls
 	private LinkedList<Job> adjIncList[];	// Incoming Adjacency List 
 	private LinkedList<Job> adjOutList[];	// Outgoing Adjacency List
 	
 	public JobSchedule(){					// No-parameter constructor
-		
 		v = 0;
 		e = 0;
 		sz = 10;							// Default size of 10, increased or decreased automatically
+		changed = true;
 		adjIncList = new LinkedList[sz];	
 		adjOutList = new LinkedList[sz];
 		
@@ -291,6 +292,7 @@ public class JobSchedule{
 			adjIncList[vertex].add(j);			// Add required job into incoming adjacency list
 			adjOutList[j.V()].add(this);		// Add this job into the required job's outgoing adjacency list
 			e++;
+			changed = true;						// By adding an edge, we've potentially changed the minimum start time
 		
 		} // end Job::requires
 		
@@ -308,11 +310,14 @@ public class JobSchedule{
 		public int getStartTime(){
 			
 			Integer[] d = new Integer[v];
-			SSSPDAG(d, vertex);
+			
+			if(changed){
+				SSSPDAG(d, vertex);
+				changed = false;
+			}
 			
 			if (startTime < 0)				// If this vertex is in a cycle
 				return -1;					// Then it cannot have a start time, thus return -1
-
 			else
 				return startTime - weight;	// Return the longest minimum time to *start* job
 			
