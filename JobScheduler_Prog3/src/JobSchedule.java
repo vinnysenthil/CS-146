@@ -137,6 +137,8 @@ public class JobSchedule{
 				if(d[u] + getWeight(v) > (d[v])){		// Check if new time takes longer
 					
 					d[v] = d[u] + getWeight(v);			// If so, update Job's start time
+					adjIncList[v].getFirst().setT(d[v]);
+					adjOutList[v].getFirst().setT(d[v]);
 					pi[v] = u;							// Update or set parent Job
 				
 				}
@@ -144,8 +146,11 @@ public class JobSchedule{
 		}
 				
 		for (int i = 0; i < v; i++){		// Kahn's algorithm will not discover vertices in cycles
-			if(fin[i] == false)				// Therefore if any vertex was not discovered after SSSP DAG,
+			if(fin[i] == false){			// Therefore if any vertex was not discovered after SSSP DAG,
 				d[i] = (-1);				// Set its start time to -1
+				adjIncList[i].getFirst().setT(-1);
+				adjOutList[i].getFirst().setT(-1);
+			}
 		}
 		
 		return 1;
@@ -251,7 +256,7 @@ public class JobSchedule{
 		public Job(int v, int w){
 			vertex = v;
 			weight = w;
-			startTime = -1;
+			startTime = w;
 		}
 		
 		public int V(){
@@ -303,13 +308,13 @@ public class JobSchedule{
 		public int getStartTime(){
 			
 			Integer[] d = new Integer[v];
-			if(SSSPDAG(d, vertex) < 0)
-				return -1;
+			SSSPDAG(d, vertex);
 			
-			if(d[vertex] < 0)				// If this vertex is in a cycle
+			if (startTime < 0)				// If this vertex is in a cycle
 				return -1;					// Then it cannot have a start time, thus return -1
+
 			else
-				return d[vertex] - weight;	// Return the longest minimum time to *start* job
+				return startTime - weight;	// Return the longest minimum time to *start* job
 			
 		} // end Job::requires
 	
