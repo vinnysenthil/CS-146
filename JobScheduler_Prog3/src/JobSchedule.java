@@ -86,9 +86,12 @@ public class JobSchedule{
 	 */
 	public int minCompletionTime(){
 		
-		if(SSSPDAG(-1) < 0)			// If SSSPDAG returns -1 (cycle detection)
-			return -1;					// Return -1 here as well
-	
+		if(changed){
+			if(SSSPDAG(-1) < 0)			// If SSSPDAG returns -1 (cycle detection)
+				return -1;					// Return -1 here as well
+			changed = false;
+		}
+		
 		return findMin();
 	
 	} // end JobSchedule::minCompletionTime
