@@ -86,18 +86,16 @@ public class JobSchedule{
 	 */
 	public int minCompletionTime(){
 		
-		Integer[] d = new Integer[v];
-		
-		if(SSSPDAG(d, -1) < 0)			// If SSSPDAG returns -1 (cycle detection)
+		if(SSSPDAG(-1) < 0)			// If SSSPDAG returns -1 (cycle detection)
 			return -1;					// Return -1 here as well
-		
-		return findMin(d);
-		
+	
+		return findMin();
+	
 	} // end JobSchedule::minCompletionTime
 	
 	
 	// Shortest Path Algorithm w/ Cycle Checking
-	public int SSSPDAG(Integer[] d, int jobV){
+	public int SSSPDAG(int jobV){
 				
 		List<Integer> vertList = topSort();				// Create List of topologically sorted Jobs from graph
 		
@@ -105,13 +103,12 @@ public class JobSchedule{
 			return -1;									// So return -1 to tell minCompletionTime
 		
 		Integer[] pi = new Integer[v];
-		Boolean[] fin = new Boolean[v];
 			
 		// SSSP_INITIALIZE(G,s)
 		for(int i = 0; i < v; i++){
-			d[i] = adjIncList[i].getFirst().W();		// Set default distance as Job
+			updateTime(i, getTime(i));					// Set default distance as Job
 			pi[i] = null;
-			fin[i] = false;
+			setFinish(i, false);						// Set all jobs as not found
 		}
 				
 		// Iterating through topologically sorted stack
@@ -124,7 +121,7 @@ public class JobSchedule{
 			if(jobV == u)								// If SSSP DAG is being called for getStartTime()
 				return 1;								// Single Target Destination reached
 			
-			fin[u] = true;								// Mark Job u as found
+			setFinish(u, true);							// Mark Job u as found
 			
 			Iterator<Job> edges = adjOutList[u].iterator();
 			
@@ -135,25 +132,20 @@ public class JobSchedule{
 				int v = edges.next().V();				// Get Job index of next outgoing edge from u -> v
 					
 				// RELAX(G,s)
-				if(d[u] + getWeight(v) > (d[v])){		// Check if new time takes longer
-					
-					d[v] = d[u] + getWeight(v);			// If so, update Job's start time
-					adjIncList[v].getFirst().setT(d[v]);
-					adjOutList[v].getFirst().setT(d[v]);
-					pi[v] = u;							// Update or set parent Job
+				if(getTime(u) + getWeight(v) > getTime(v)){		// Check if new time takes longer
+					updateTime(v, getTime(u) + getWeight(v));	// If so, update Job's start time
+					pi[v] = u;									// Update or set parent Job
 				
 				}
 			}	
 		}
-				
+		
 		for (int i = 0; i < v; i++){		// Kahn's algorithm will not discover vertices in cycles
-			if(fin[i] == false){			// Therefore if any vertex was not discovered after SSSP DAG,
-				d[i] = (-1);				// Set its start time to -1
-				adjIncList[i].getFirst().setT(-1);
-				adjOutList[i].getFirst().setT(-1);
+			if(!checkFinish(i)){			// Therefore if any vertex was not discovered after SSSP DAG,
+				updateTime(i, -1);			// Set its start time to -1			
 			}
 		}
-		
+						
 		return 1;
 	} // end JobSchedule::SSSPDAG
 	
@@ -216,13 +208,13 @@ public class JobSchedule{
 	
 	
 	// Find Job sequence that takes largest time in JobSchedule
-	public int findMin(Integer[] d){
+	public int findMin(){
 		
-		int minTime = Integer.MIN_VALUE;				// Negative Infinity
+		int minTime = Integer.MIN_VALUE;						// Negative Infinity
 		
 		for (int i = 0; i < v; i++){
-			if(d[i] > minTime)
-				minTime = d[i];							// Find "minimum" time in vertex list
+			if(getTime(i) > minTime)
+				minTime = getTime(i);			// Find "minimum" time in vertex list
 		}
 		
 		return minTime;
@@ -248,10 +240,39 @@ public class JobSchedule{
 		return sz;
 	}
 	
+	// Update startTime of specific Job in Schedule
+	public void updateTime(int v, int t){
+		adjIncList[v].getFirst().setT(t);
+		adjOutList[v].getFirst().setT(t);
+	}
+	
+	public int getTime(int v){
+		return adjIncList[v].getFirst().startTime;
+	}
+	
+	public void setFinish(int v, boolean f)
+	{
+		adjIncList[v].getFirst().finished = f;
+		adjOutList[v].getFirst().finished = f;
+	}
+	
+	public boolean checkFinish(int v){
+		return adjIncList[v].getFirst().finished;
+	}
+	
+	public void markUndiscovered(){
+		for (int i = 0; i < v; i++){		// Kahn's algorithm will not discover vertices in cycles
+			if(!checkFinish(i)){			// Therefore if any vertex was not discovered after SSSP DAG,
+				updateTime(i, -1);			// Set its start time to -1			
+			}
+		}
+	}
+	
 	public class Job{
 		int vertex;							// This Job's index in adjacency lists
 		int weight;							// Time of this specific Job
 		int startTime;						// Minimum time to begin this Job
+		boolean finished;					// Mark if found or not during SSSP DAG
 		
 		// Two Parameter Job Constructor
 		public Job(int v, int w){
@@ -268,7 +289,7 @@ public class JobSchedule{
 			return weight;
 		}
 		
-		public int getT(){
+		public int T(){
 			return startTime;
 		}
 			
@@ -309,13 +330,11 @@ public class JobSchedule{
 		 */
 		public int getStartTime(){
 			
-			Integer[] d = new Integer[v];
-			
 			if(changed){
-				SSSPDAG(d, vertex);
+				SSSPDAG(vertex);
 				changed = false;
 			}
-			
+						
 			if (startTime < 0)				// If this vertex is in a cycle
 				return -1;					// Then it cannot have a start time, thus return -1
 			else
