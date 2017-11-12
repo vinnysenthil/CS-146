@@ -178,16 +178,15 @@ public class JobSchedule{
 	// Non-Recursive, Non-DFS TopSort (Kahn's Algorithm)
 	public ArrayList<Integer> topSort()
 	{
-		int[] inDegree = new int[v];
 		
 		for(int i = 0; i < v; i++){
-			inDegree[i] = (adjIncList[i].size() - 1);			// Set inDegree for each vertex based on LinkedList size
-		}														// in the incoming adjacency list
+			getJob(i).inDegree2 = getJob(i).inDegree;			// Set inDegree for each vertex based on stored inDegree
+		}
 		
 		ArrayList<Integer> vertList = new ArrayList<Integer>();
 		
 		for (int i = 0; i < v; i++){							// Add all Jobs with no required jobs to start of topSort list
-			if(inDegree[i] == 0)
+			if(getJob(i).inDegree2 == 0)
 				vertList.add(i);
 		}
 				
@@ -198,9 +197,9 @@ public class JobSchedule{
 			
 			while(outVertices.hasNext()){						// Go through all outgoing edges from Jobs already in list
 				int v = outVertices.next().V();
-				--inDegree[v];									// Once found, decrement inDegree for that Job
+				getJob(v).inDegree2--;									// Once found, decrement inDegree for that Job
 				
-				if (inDegree[v] == 0)							// If inDegree has reached zero, add to end of topSort list
+				if (getJob(v).inDegree2 == 0)							// If inDegree has reached zero, add to end of topSort list
 					vertList.add(v);
 			}
 		}
@@ -263,25 +262,22 @@ public class JobSchedule{
 		return adjIncList[v].getFirst().finished;
 	}
 	
-	public void markUndiscovered(){
-		for (int i = 0; i < v; i++){		// Kahn's algorithm will not discover vertices in cycles
-			if(!checkFinish(i)){			// Therefore if any vertex was not discovered after SSSP DAG,
-				updateTime(i, -1);			// Set its start time to -1			
-			}
-		}
-	}
-	
 	public class Job{
 		int vertex;							// This Job's index in adjacency lists
 		int weight;							// Time of this specific Job
 		int startTime;						// Minimum time to begin this Job
+		int inDegree;						// Amount of jobs required prior to purchase
+		int inDegree2; 						// Copy of above
 		boolean finished;					// Mark if found or not during SSSP DAG
+		
 		
 		// Two Parameter Job Constructor
 		public Job(int v, int w){
 			vertex = v;
 			weight = w;
 			startTime = w;
+			inDegree = 0;
+			inDegree2 = 0;
 		}
 		
 		public int V(){
@@ -316,6 +312,7 @@ public class JobSchedule{
 			adjIncList[vertex].add(j);			// Add required job into incoming adjacency list
 			adjOutList[j.V()].add(this);		// Add this job into the required job's outgoing adjacency list
 			e++;
+			inDegree++;
 			changed = true;						// By adding an edge, we've potentially changed the minimum start time
 		
 		} // end Job::requires
