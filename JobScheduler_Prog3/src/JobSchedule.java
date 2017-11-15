@@ -32,7 +32,6 @@ public class JobSchedule{
 		e = 0;
 		sz = 10;							// Default size of 10, increased or decreased automatically
 		changed = true;
-		adjIncList = new LinkedList[sz];	
 		adjIncList = new ArrayList<ArrayList<Job>>();	
 		adjOutList = new ArrayList<ArrayList<Job>>();
 		
