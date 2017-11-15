@@ -22,8 +22,10 @@ public class JobSchedule{
 	private int e;							// Number of edges in graph
 	private int sz;							// Array Size, Dynamically Updated
 	private boolean changed;				// Track whether Schedule has been changed between method calls
-	private LinkedList<Job> adjIncList[];	// Incoming Adjacency List 
-	private LinkedList<Job> adjOutList[];	// Outgoing Adjacency List
+	//private LinkedList<Job> adjIncList[];	// Incoming Adjacency List 
+	//private LinkedList<Job> adjOutList[];	// Outgoing Adjacency List
+	private ArrayList<ArrayList<Job>> adjIncList;
+	private ArrayList<ArrayList<Job>> adjOutList;
 	
 	public JobSchedule(){					// No-parameter constructor
 		v = 0;
@@ -31,7 +33,8 @@ public class JobSchedule{
 		sz = 10;							// Default size of 10, increased or decreased automatically
 		changed = true;
 		adjIncList = new LinkedList[sz];	
-		adjOutList = new LinkedList[sz];
+		adjIncList = new ArrayList<ArrayList<Job>>();	
+		adjOutList = new ArrayList<ArrayList<Job>>();
 		
 	} // end JobSchedule::JobSchedule
 	
@@ -46,14 +49,14 @@ public class JobSchedule{
 	public Job addJob(int time){
 		
 		Job newJob = new Job(v, time);
-		sizeCheck();							// Check current adj lists' size and update if needed
-		
-		adjIncList[v] = new LinkedList<Job>();
-		adjIncList[v].add(newJob);
-		
-		adjOutList[v] = new LinkedList<Job>();
-		adjOutList[v].add(newJob);
+		//sizeCheck();							// Check current adj lists' size and update if needed
 				
+		adjIncList.add(new ArrayList<Job>());
+		adjIncList.get(v).add(newJob);
+		
+		adjOutList.add(new ArrayList<Job>());
+		adjOutList.get(v).add(newJob);
+		
 		v++;
 		
 		return newJob;
@@ -72,7 +75,7 @@ public class JobSchedule{
 	 */
 	public Job getJob(int index){
 		
-		return adjIncList[index].getFirst();
+		return adjIncList.get(index).get(0);
 		
 	} // end JobSchedule::getJob
 	
@@ -88,10 +91,10 @@ public class JobSchedule{
 		
 		if(changed){
 			if(SSSPDAG(-1) < 0)			// If SSSPDAG returns -1 (cycle detection)
-				return -1;					// Return -1 here as well
+				return -1;	
 			changed = false;
 		}
-		
+	
 		return findMin();
 	
 	} // end JobSchedule::minCompletionTime
@@ -126,7 +129,7 @@ public class JobSchedule{
 			
 			setFinish(u, true);							// Mark Job u as found
 			
-			Iterator<Job> edges = adjOutList[u].iterator();
+			Iterator<Job> edges = adjOutList.get(u).iterator();
 			
 			if(edges.hasNext())							// Skip first Job in adjacency list (Job 'u' itself)
 				edges.next();
@@ -153,28 +156,6 @@ public class JobSchedule{
 	} // end JobSchedule::SSSPDAG
 	
 	
-	// Dynamically increase size of array storing adjacency lists
-	public void sizeCheck(){
-		if (v+1 == sz){											// If new Job will exceed size, double size of adjLists
-			sz *= 2;	
-			LinkedList<Job> newAdjI[] = new LinkedList[sz];
-			LinkedList<Job> newAdjO[] = new LinkedList[sz];
-
-			for (int i = 0; i < (sz/2); i++){
-				newAdjI[i] = adjIncList[i];						// Temporarily copy and hold data while resizing
-				newAdjO[i] = adjOutList[i];
-			}
-			
-			adjIncList = newAdjI;								// Reassign temporarily held data
-			adjOutList = newAdjO;
-		}
-		
-		else
-			return;												// Else if new Job fits, then do nothing
-		
-	} // end JobSchedule::sizeCheck
-	
-	
 	// Non-Recursive, Non-DFS TopSort (Kahn's Algorithm)
 	public ArrayList<Integer> topSort()
 	{
@@ -193,13 +174,13 @@ public class JobSchedule{
 		for(int i = 0; i < vertList.size(); i++){
 			int u = vertList.get(i);							// Get Job from topSort list, in order
 			
-			Iterator<Job> outVertices = adjOutList[u].iterator();
+			Iterator<Job> outVertices = adjOutList.get(u).iterator();
 			
 			while(outVertices.hasNext()){						// Go through all outgoing edges from Jobs already in list
 				int v = outVertices.next().V();
-				getJob(v).inDegree2--;									// Once found, decrement inDegree for that Job
+				getJob(v).inDegree2--;							// Once found, decrement inDegree for that Job
 				
-				if (getJob(v).inDegree2 == 0)							// If inDegree has reached zero, add to end of topSort list
+				if (getJob(v).inDegree2 == 0)					// If inDegree has reached zero, add to end of topSort list
 					vertList.add(v);
 			}
 		}
@@ -224,7 +205,7 @@ public class JobSchedule{
 	
 	
 	public int getWeight(int vertex){
-		return adjIncList[vertex].getFirst().W();
+		return adjIncList.get(vertex).get(0).W();
 	}
 	
 	// Get Number of Vertices
@@ -244,22 +225,22 @@ public class JobSchedule{
 	
 	// Update startTime of specific Job in Schedule
 	public void updateTime(int v, int t){
-		adjIncList[v].getFirst().setT(t);
-		adjOutList[v].getFirst().setT(t);
+		adjIncList.get(v).get(0).setT(t);
+		adjOutList.get(v).get(0).setT(t);
 	}
 	
 	public int getTime(int v){
-		return adjIncList[v].getFirst().startTime;
+		return adjIncList.get(v).get(0).startTime;
 	}
 	
 	public void setFinish(int v, boolean f)
 	{
-		adjIncList[v].getFirst().finished = f;
-		adjOutList[v].getFirst().finished = f;
+		adjIncList.get(v).get(0).finished = f;
+		adjOutList.get(v).get(0).finished = f;
 	}
 	
 	public boolean checkFinish(int v){
-		return adjIncList[v].getFirst().finished;
+		return adjIncList.get(v).get(0).finished;
 	}
 	
 	public class Job{
@@ -309,11 +290,11 @@ public class JobSchedule{
 		 */
 		public void requires(Job j){
 			
-			adjIncList[vertex].add(j);			// Add required job into incoming adjacency list
-			adjOutList[j.V()].add(this);		// Add this job into the required job's outgoing adjacency list
+			adjIncList.get(vertex).add(j);			// Add required job into incoming adjacency list
+			adjOutList.get(j.V()).add(this);		// Add this job into the required job's outgoing adjacency list
 			e++;
 			inDegree++;
-			changed = true;						// By adding an edge, we've potentially changed the minimum start time
+			changed = true;							// By adding an edge, we've potentially changed the minimum start time
 		
 		} // end Job::requires
 		

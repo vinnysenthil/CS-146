@@ -28,7 +28,7 @@ public class GraphTests {
 		x.addJob(5);
 		x.addJob(5);
 		x.addJob(5);
-		assertEquals(20, x.getSize());
+		assertEquals(10, x.getSize());
 	}
 	
 	@Test
